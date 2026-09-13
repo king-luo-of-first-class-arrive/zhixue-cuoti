@@ -472,10 +472,10 @@ elif mode == "学习报告":
             st.bar_chart(df)
 
         st.markdown("### 薄弱知识点")
-        ks = db.knowledge_stats(user_id)
+        ks = [r for r in db.knowledge_stats(user_id) if (r["knowledge_point"] or "") != "未分类"]
         if ks:
             df2 = pd.DataFrame(
-                [(r["knowledge_point"] or "未分类", r["n"]) for r in ks],
+                [(r["knowledge_point"], r["n"]) for r in ks],
                 columns=["知识点", "次数"],
             ).set_index("知识点")
             st.bar_chart(df2)
@@ -517,7 +517,7 @@ else:
         else:
             st.info("本周和上周错题数持平")
 
-        ks = db.knowledge_stats(user_id)
+        ks = [r for r in db.knowledge_stats(user_id) if (r["knowledge_point"] or "") != "未分类"]
         weak_lines = "、".join(f"{r['knowledge_point']}（{r['n']}道）" for r in ks[:5]) or "暂无"
         st.markdown("### AI 家长版总结")
         with st.spinner("生成中……"):
