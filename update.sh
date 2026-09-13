@@ -13,6 +13,7 @@ pip install -i https://pypi.tuna.tsinghua.edu.cn/simple -r requirements.txt
 echo "==> [3/3] 重启服务"
 pkill -f "streamlit run app.py" 2>/dev/null && echo "已停止旧进程" || echo "无旧进程在运行"
 sleep 1
+export PYTHONUTF8=1   # 服务器 locale 常为 C/ASCII，不强制 UTF-8 会导致中文报 'ascii' codec 编码错误
 nohup streamlit run app.py --server.address 0.0.0.0 --server.port 8501 --server.headless true > streamlit.log 2>&1 &
 
 sleep 3

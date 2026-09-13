@@ -19,6 +19,7 @@ source .venv/bin/activate
 pip install -r requirements.txt
 
 echo "==> [3/3] 后台启动 Streamlit"
+export PYTHONUTF8=1   # 服务器 locale 常为 C/ASCII，不强制 UTF-8 会导致中文报 'ascii' codec 编码错误
 nohup streamlit run app.py --server.address 0.0.0.0 --server.port 8501 --server.headless true > streamlit.log 2>&1 &
 
 sleep 3

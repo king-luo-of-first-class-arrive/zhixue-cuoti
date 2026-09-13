@@ -20,8 +20,9 @@ except ImportError:
 
 
 def _load_dotenv():
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
     try:
-        for line in open(".env", encoding="utf-8"):
+        for line in open(path, encoding="utf-8"):
             line = line.strip()
             if line and not line.startswith("#") and "=" in line:
                 k, v = line.split("=", 1)
