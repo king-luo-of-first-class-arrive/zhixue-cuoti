@@ -74,6 +74,7 @@ DIAGNOSE_PROMPT = """你是小学数学老师，分析学生做错题的具体�
   "error_category": "概念错误|计算错误|审题错误|方法错误 之一",
   "error_specific": "学生具体错在哪，如'进位时忘记加1'，禁止用'粗心'这种空泛说法",
   "correct_answer": "正确答案，必须和解题步骤最后算出的结果一致",
+  "expression": "算出 correct_answer 的完整计算式或方程（结果必须等于 correct_answer，不能只写中间步骤，如平均数要写 (4+6+8+10)/4 而不是 4+6+8+10）。纯算式不带等号，方程含 x 和 =（如 2*x-x=6）；纯文字题没有算式就写空字符串",
   "correct_steps": "按上面「解题步骤写法」生成",
   "explanation": "针对该错误的一句话纠正建议"
 }}"""
@@ -96,9 +97,30 @@ def diagnose(question, student_answer, self_note=None, image_bytes=None, image_m
     )
     if image_bytes:
         prompt = "题目图片已一并提供（可能含几何图形）。请结合图片里的图形、标注、阴影等信息诊断。\n" + prompt
-        result = _chat_vision_json(prompt, image_bytes, image_mime, temperature=0.2)
-    else:
-        result = _chat(prompt, temperature=0.2)
+
+    def _run(p):
+        if image_bytes:
+            return _chat_vision_json(p, image_bytes, image_mime, temperature=0.2)
+        return _chat(p, temperature=0.2)
+
+    result = _run(prompt)
+
+    # 独立验算正确性：expression 与 correct_answer 不一致则反馈重试
+    expr = str(result.get("expression", "")).strip()
+    for _ in range(2):
+        ans_num = _strip_unit(result.get("correct_answer", ""))
+        try:
+            eval_math(ans_num)
+        except (ValueError, ZeroDivisionError, SyntaxError):
+            break  # 答案不是纯数字，无法验算
+        if not expr or verify_answer(expr, ans_num):
+            break
+        result = _run(
+            prompt
+            + f"\n\n注意：你的 correct_answer「{result.get('correct_answer')}」与计算式「{expr}」的结果不一致，说明答案算错了。请重新独立计算，给出正确的 correct_answer 和与之匹配的 expression。"
+        )
+        expr = str(result.get("expression", "")).strip()
+
     cats = list(taxonomy.CATEGORIES)
     result["category"] = _normalize_type(result.get("category", ""), cats)
     result["knowledge_point"] = _normalize_type(
@@ -284,23 +306,40 @@ def eval_math(expr):
 
 
 def solve_equation(eq_str, var="x"):
-    """解一元方程，返回实数解列表。如 '2*x+3=11' -> [4.0]。"""
+    """解一元方程，返回实数解列表。如 '2*x+3=11' 或 '2x=10' -> [4.0]/[5.0]。"""
     if sympy is None:
         raise RuntimeError("需要 sympy 库：pip install sympy")
     if not re.fullmatch(r"[0-9+*/=().\sx-]+", eq_str):
         raise ValueError("方程表达式包含非法字符")
+    eq_str = re.sub(r"\s+", "", eq_str)
+    eq_str = re.sub(r"(\d)([a-zA-Z(])", r"\1*\2", eq_str)  # 2x -> 2*x, 2( -> 2*(
     eq_str = eq_str.replace("=", "-(") + ")"
     x = sympy.symbols(var)
     expr = sympy.sympify(eq_str)
     return [float(s) for s in sympy.solve(expr, x) if s.is_real]
 
 
+_UNIT_RE = re.compile(r"[米分米厘米毫米千米公里千克克吨元角分升毫升小时分钟秒个只条张本块根件次]+$")
+
+
+def _strip_unit(x):
+    """去掉答案里的单位后缀，供验算用。"""
+    return _UNIT_RE.sub("", str(x).strip())
+
+
 def verify_answer(expression, claimed_answer):
     """独立校验 LLM 声称的答案：先算术等值，再方程求解。"""
+    claimed_answer = _strip_unit(claimed_answer)
     try:
         return eval_math(expression) == eval_math(claimed_answer)
     except (ValueError, ZeroDivisionError, SyntaxError):
         pass
+    if "=" in expression and "x" not in expression:
+        left, _, right = expression.partition("=")
+        try:
+            return eval_math(left) == eval_math(right)
+        except (ValueError, ZeroDivisionError, SyntaxError):
+            return False
     if "=" in expression or "x" in expression:
         try:
             roots = solve_equation(expression)
