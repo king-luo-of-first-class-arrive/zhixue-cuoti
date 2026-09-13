@@ -320,8 +320,8 @@ if mode == "录入错题":
                         tutor_chat_stream(question, student_answer, diag, msgs)
                     )
                 except Exception as e:
-                    st.error(f"老师暂时无法回答：{e}")
-                    st.stop()
+                    reply = f"老师暂时无法回答：{e}"
+                    st.write(reply)
             msgs.append({"role": "assistant", "content": reply})
             st.session_state["msgs"] = msgs
 
