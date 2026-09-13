@@ -342,9 +342,8 @@ elif mode == "今日复习":
     if not due:
         st.info("今天没有要复习的错题")
     for m in due:
-        with st.expander(f"#{m['id']} · {m['knowledge_point']}"):
-            st.write(m["question"])
-            st.caption(f"上次错答：{m['student_answer']}")
+        with st.expander(f"#{m['id']} · {m['question']}"):
+            st.caption(f"题型：{m['knowledge_point']} · 上次错答：{m['student_answer']}")
 
             ans = st.text_input("你的答案", key=f"ain{m['id']}")
             col1, col2 = st.columns(2)
@@ -414,12 +413,9 @@ elif mode == "我的错题本":
         chosen = st.selectbox("按类目筛选", cats)
         items = db.all_mistakes(user_id, None if chosen == "全部" else chosen)
         for m in items:
-            with st.expander(
-                f"#{m['id']} · {m['category'] or '未分类'} · {m['knowledge_point']}"
-            ):
-                st.write(m["question"])
+            with st.expander(f"#{m['id']} · {m['question']}"):
                 st.caption(
-                    f"错答：{m['student_answer']} · 错因：{m['error_specific']} · 答案：{m['correct_answer']}"
+                    f"{m['category'] or '未分类'} · {m['knowledge_point']} · 错答：{m['student_answer']} · 错因：{m['error_specific']} · 答案：{m['correct_answer']}"
                 )
                 if st.button("重做这道题", key=f"redo{m['id']}"):
                     st.session_state[f"redo_{m['id']}"] = True
