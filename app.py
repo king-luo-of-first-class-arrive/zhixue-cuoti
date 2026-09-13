@@ -241,6 +241,8 @@ if mode == "录入错题":
                 )
                 st.session_state["msgs"] = []
                 st.session_state["self_choice"] = self_choice
+                st.session_state["diag_question"] = question
+                st.session_state["diag_answer"] = student_answer
                 st.session_state.pop("practice_q", None)
                 st.session_state.pop("p_status", None)
             except Exception as e:
@@ -329,10 +331,17 @@ if mode == "录入错题":
             calibration = None
             if self_category:
                 calibration = 1 if self_category == diag.get("error_category") else 0
-            db.add_mistake(user_id, diag, question, student_answer, self_category, calibration)
+            db.add_mistake(
+                user_id, diag,
+                st.session_state.get("diag_question", question),
+                st.session_state.get("diag_answer", student_answer),
+                self_category, calibration,
+            )
             st.session_state.pop("diag")
             st.session_state.pop("msgs", None)
             st.session_state.pop("self_choice", None)
+            st.session_state.pop("diag_question", None)
+            st.session_state.pop("diag_answer", None)
             st.session_state["clear_fields"] = True
             st.rerun()
 
