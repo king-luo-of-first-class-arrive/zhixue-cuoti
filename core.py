@@ -309,6 +309,29 @@ def verify_answer(expression, claimed_answer):
     return False
 
 
+_CN_DIGIT = {"零": 0, "一": 1, "二": 2, "两": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7, "八": 8, "九": 9}
+_CN_UNIT = {"十": 10, "百": 100, "千": 1000, "万": 10000}
+
+
+def _cn_to_int(s):
+    """中文数字转整数：五=5、十五=15、二十五=25、一百=100；含非中文数字字符返回 None。"""
+    total = 0
+    cur = 0
+    for ch in s:
+        if ch in _CN_DIGIT:
+            cur = _CN_DIGIT[ch]
+        elif ch in _CN_UNIT:
+            u = _CN_UNIT[ch]
+            if u >= 10000:
+                total = (total + cur) * u
+            else:
+                total += (cur or 1) * u
+            cur = 0
+        else:
+            return None
+    return total + cur
+
+
 def check_answer(correct, student):
     """判断学生作答是否等于正确答案：先数值等值，再字符串兜底。"""
     trans = str.maketrans("０１２３４５６７８９．－＋／（）", "0123456789.-+/()")
@@ -324,6 +347,9 @@ def check_answer(correct, student):
                 x = str(float(x[:-1]) / 100)
             except ValueError:
                 pass
+        cn = _cn_to_int(x)
+        if cn is not None:
+            x = str(cn)
         return x
 
     c, s = norm(correct), norm(student)

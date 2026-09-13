@@ -198,6 +198,9 @@ if mode == "录入错题":
         st.session_state.pop("practice_q", None)
         st.session_state.pop("p_status", None)
 
+    if st.session_state.pop("saved_notice", None):
+        st.success("已存入错题本 ✅")
+
     uploaded = st.file_uploader(
         "拍题图片（可选，上传后自动识别）",
         type=["jpg", "jpeg", "png"],
@@ -267,6 +270,28 @@ if mode == "录入错题":
             st.markdown("**解题步骤**：" + diag.get("correct_steps", ""))
             st.markdown(f"**纠正建议**：{diag['explanation']}")
 
+        if st.button("我明白了，存入错题本", type="primary", use_container_width=True):
+            chosen = st.session_state.get("self_choice", "不确定")
+            self_category = SELF_CATEGORY_MAP.get(chosen)
+            calibration = None
+            if self_category:
+                calibration = 1 if self_category == diag.get("error_category") else 0
+            db.add_mistake(
+                user_id, diag,
+                st.session_state.get("diag_question", question),
+                st.session_state.get("diag_answer", student_answer),
+                self_category, calibration,
+            )
+            st.session_state.pop("diag")
+            st.session_state.pop("msgs", None)
+            st.session_state.pop("self_choice", None)
+            st.session_state.pop("diag_question", None)
+            st.session_state.pop("diag_answer", None)
+            st.session_state["saved_notice"] = "已存入错题本 ✅"
+            st.session_state["clear_fields"] = True
+            st.rerun()
+
+        st.divider()
         # 学练闭环：一键做同类题
         if st.button("🎯 做一道同类题巩固", key="practice_btn"):
             with st.spinner("出题中……"):
@@ -324,26 +349,6 @@ if mode == "录入错题":
                     st.write(reply)
             msgs.append({"role": "assistant", "content": reply})
             st.session_state["msgs"] = msgs
-
-        if st.button("我明白了，存入错题本", type="primary"):
-            chosen = st.session_state.get("self_choice", "不确定")
-            self_category = SELF_CATEGORY_MAP.get(chosen)
-            calibration = None
-            if self_category:
-                calibration = 1 if self_category == diag.get("error_category") else 0
-            db.add_mistake(
-                user_id, diag,
-                st.session_state.get("diag_question", question),
-                st.session_state.get("diag_answer", student_answer),
-                self_category, calibration,
-            )
-            st.session_state.pop("diag")
-            st.session_state.pop("msgs", None)
-            st.session_state.pop("self_choice", None)
-            st.session_state.pop("diag_question", None)
-            st.session_state.pop("diag_answer", None)
-            st.session_state["clear_fields"] = True
-            st.rerun()
 
 elif mode == "今日复习":
     st.subheader("🔁 今日待复习")
